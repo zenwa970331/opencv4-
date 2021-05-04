@@ -1,0 +1,59 @@
+#include "opencv.hpp"
+#include <iostream>
+using namespace std;
+
+int main()
+{
+	const int Max_Clusters = 5;
+	cv::Scalar colorTab[] = { cv::Scalar(0,0,255),cv::Scalar(0,255,0),cv::Scalar(255,0,0),cv::Scalar(255,255,0),cv::Scalar(255,0,255) };
+	cv::Mat img(500, 500, CV_8UC3);
+	img = cv::Scalar::all(255);
+	cv::RNG rng(12345);
+	while (true)
+	{
+		int k, clusterCount = rng.uniform(2, Max_Clusters + 1);
+		int i, sampleCount = rng.uniform(1, 1001);
+		cv::Mat points(sampleCount, 1, CV_32FC2);
+		cv::Mat labels;
+		clusterCount = MIN(clusterCount, sampleCount);
+		vector<cv::Point2f> centers;
+
+		for ( k = 0; k < clusterCount; k++)
+		{
+			cv::Point center;
+			center.x = rng.uniform(0, img.cols);
+			center.y = rng.uniform(0, img.rows);
+			cout << center << " ";
+			cv::Mat pointChunk = points.rowRange(k * sampleCount / clusterCount, k == clusterCount - 1 ?
+												 sampleCount : (k + 1) * sampleCount / clusterCount);
+			rng.fill(pointChunk, cv::RNG::NORMAL, cv::Scalar(center.x, center.y), cv::Scalar(img.cols * 0.05, img.rows * 0.05));
+		}
+		cout << endl;
+		cv::randShuffle(points, 2, &rng);
+		double compactness = cv::kmeans(points, 
+										clusterCount, 
+										labels, 
+										cv::TermCriteria(cv::TermCriteria::EPS, 50, 1.0), 
+										10, 
+										cv::KMEANS_PP_CENTERS, 
+										centers);
+		cv::Mat temp = img.clone();
+		for (int i = 0; i < sampleCount; i++)
+		{
+			cv::circle(temp, cv::Point(points.at<cv::Point2f>(i)), 2, colorTab[labels.at<int>(i)], cv::FILLED, cv::LINE_AA);
+		}
+		for (int i = 0; i < centers.size(); i++)
+		{
+			cv::circle(temp, centers[i], 40, colorTab[i], 1, cv::LINE_AA);
+			cout << centers[i] << " ";
+		}
+		cout << compactness << endl;
+		cv::imshow("cluster", temp);
+		char key = (char)cv::waitKey();
+		if (key==27||key=='q')
+		{
+			break;
+		}
+	}
+	return 0;
+}

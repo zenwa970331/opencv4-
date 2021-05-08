@@ -1,0 +1,152 @@
+#include "iostream"
+#include "stdio.h"
+#include "stdlib.h"
+#include <opencv.hpp>
+
+using namespace std;
+using namespace cv;
+typedef unsigned char BYTE;
+typedef unsigned short WORD;
+typedef unsigned int DWORD;
+
+struct Image
+{
+    BYTE array[28][28];
+    Image(BYTE array[28][28])
+    {
+        for (int i = 0; i < 28; i++)
+            for (int j = 0; j < 28; j++)
+                this->array[i][j] = array[i][j];
+    }
+};
+
+class MNIST
+{
+protected:
+    DWORD magic_number;
+    DWORD count;
+
+protected:
+    DWORD reverse(DWORD& num) // 从文件里读取的数是倒着的，因此需要翻转一下
+    {
+        int res = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            res = res << 8;
+            unsigned char tc = num >> i * 8;
+            res |= tc;
+        }
+        return num = res;
+    }
+
+public:
+    void virtual printInfo() = 0;
+    void virtual printData(int n = 0) = 0;
+};
+
+class MNIST_Image : public MNIST
+{
+    DWORD rows;
+    DWORD columns;
+    Image* images[60000];
+
+public:
+    MNIST_Image(char* filepath) // "C:\\Users\\Administrator\\Desktop\\人工智能作业\\train - images.idx3 - ubyte"
+    {
+        FILE* fp;
+        fp = fopen(filepath, "rb");
+        if (fp != NULL) {
+            fread(&magic_number, 1, 4, fp); reverse(magic_number);
+            fread(&count, 1, 4, fp); reverse(count);
+            fread(&rows, 1, 4, fp); reverse(rows);
+            fread(&columns, 1, 4, fp); reverse(columns);
+            for (int i = 0; i < 60000; i++)
+            {
+                BYTE arr_t[28][28];
+                fread(&arr_t, 1, sizeof(BYTE) * 28 * 28, fp);
+                images[i] = new Image(arr_t);
+            }
+        }
+        else cout << "[error]: file open failed" << endl;
+        fclose(fp);
+    }
+
+    void printInfo()
+    {
+        cout << endl << "magic_number: " << magic_number << endl;
+        cout << "count: " << count << endl;
+        cout << "rows: " << rows << endl;
+        cout << "columns: " << columns << endl;
+    }
+
+    void printData(int n = 0)
+    {
+        cv::Mat temp(28, 28, CV_8UC1);
+        for (int i = 0; i < 28; i++)
+        {
+            for (int j = 0; j < 28; j++)
+            {
+                printf("%4d", images[n]->array[i][j] + 0);
+                temp.at<uchar>(i, j) = images[n]->array[i][j];
+            }
+            cout << endl;
+        }
+        imshow("haha", temp);
+        waitKey();
+    }
+};
+
+class MNIST_Label : public MNIST
+{
+    BYTE labels[60000];
+
+public:
+    MNIST_Label(char* filepath)
+    {
+        FILE* fp;
+        fp = fopen(filepath, "rb");
+        if (fp != NULL)
+        {
+            fread(&magic_number, 1, 4, fp); reverse(magic_number);
+            fread(&count, 1, 4, fp); reverse(count);
+            for (int i = 0; i < 60000; i++)
+            {
+                BYTE item_t;
+                fread(&item_t, 1, sizeof(BYTE), fp);
+                labels[i] = item_t;
+            }
+        }
+        else cout << "[error]: file open failed" << endl;
+        fclose(fp);
+    }
+
+    void printData(int n = 0)
+    {
+        for (int i = 0; i < n; i++)
+            cout << labels[i] + 0 << endl;
+    }
+
+    void printInfo()
+    {
+        cout << endl << "magic_number: " << magic_number << endl;
+        cout << "count: " << count << endl;
+    }
+};
+
+int main()
+{
+    char filepath[100] = "C:\\Users\\Administrator\\Desktop\\train-images.idx3-ubyte";
+    MNIST_Image mnist(filepath);
+    mnist.printInfo();
+  /*  while (true)
+    {
+        static int i = 0;
+        mnist.printData(i++);
+    }*/
+    mnist.printData(9);
+    char filepath2[100] = "C:\\Users\\Administrator\\Desktop\\train-labels.idx1-ubyte";
+    MNIST_Label mlb(filepath2);
+    mlb.printInfo();
+    mlb.printData(20);
+    return 0;
+}

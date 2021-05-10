@@ -1,0 +1,173 @@
+#include <opencv.hpp>
+#include <iostream>
+
+using namespace std;
+using namespace cv;
+
+typedef unsigned char BYTE;
+typedef unsigned short WORD;
+typedef unsigned int DWORD;
+
+DWORD reverse(DWORD& num)
+{
+	DWORD temp = 0;
+	for (int i = 0; i < 4; i++)
+	{
+		temp = temp << 8;
+		BYTE temp_word = num >> i * 8;
+		temp |= temp_word;
+	}
+	return num = temp;
+}
+
+void generateDateSet(char* filePath1,
+					 char* filePath2,
+					 Mat& data,
+					 Mat& label,
+					 int size)
+{
+	BYTE array[1][28 * 28],single_number_label/*,array2[size]*/;
+	Ptr<BYTE> array2 = new BYTE[size];//栈空间太小了，变成对象new到堆中，堆的空间够大。
+	DWORD magic_number, count, rows, colums;
+	FILE* fp;
+	fp = fopen(filePath1, "rb");
+	if (fp!=NULL)
+	{
+		fread(&magic_number, 1, 4, fp); reverse(magic_number);
+		fread(&count, 1, 4, fp); reverse(count);
+		fread(&rows, 1, 4, fp); reverse(rows);
+		fread(&colums,1, 4, fp); reverse(colums);
+		cout << "数据集信息:" << endl;
+		cout << "magic_number:" << magic_number << endl;
+		cout << "count:" << count << endl;
+		cout << "rows:" << rows << endl;
+		cout << "colums:" << colums << endl;
+		cout << "正在生成数据集......" << endl;
+		for (size_t i = 0; i < size; i++)
+		{
+			fread(&array, 1, 28 * 28, fp);
+			Mat single_num_vector(1, 28 * 28, CV_8UC1,array);
+			data.push_back(single_num_vector);
+		}
+		data.convertTo(data, CV_32FC1);
+		cout << "数据集生成完毕。" << endl;
+		fclose(fp);
+	}
+	else
+	{
+		cout << "打开文件失败" << endl;
+	}
+
+	fp = fopen(filePath2, "rb");
+	if (fp!=NULL)
+	{
+		fread(&magic_number, 1, 4, fp); reverse(magic_number);
+		fread(&count, 1, 4, fp); reverse(count);
+		cout << "数据集标签信息：" << endl;
+		cout << "magic_number:" << magic_number << endl;
+		cout << "count:" << count << endl;
+		cout << "正在生成标签......" << endl;
+		fread(array2, 1, size, fp);
+		Mat temp_train_label(size, 1, CV_8UC1, array2);
+		temp_train_label.convertTo(label, CV_32FC1);
+		cout << "标签生成完毕" << endl;
+		fclose(fp);
+	}
+	else
+	{
+		cout << " 打开文件失败" << endl;
+	}
+}
+void test_generateDateSet(char* filePath1,
+						  char* filePath2,
+						  Mat& data,
+						  Mat& label,
+						  int size)
+{
+	generateDateSet(filePath1, filePath2, data, label, size);
+	while (true)
+	{
+		static int j = 0;
+		for (size_t i = 0; i < data.cols; i++)
+		{
+			cout.width(3);
+			cout << data.at<float>(j, i);
+			if ((i + 1) % 28 == 0)
+			{
+				cout << endl;
+			}
+		}
+		cout << endl << label.at<float>(j) << endl;
+		j++;
+		waitKey(1000);
+	}
+}
+
+int main()
+{
+	char trainFilePath[100] = "C:\\Users\\Administrator\\Desktop\\AI school assignment\\train-images.idx3-ubyte";
+	char labelFilePath[100] = "C:\\Users\\Administrator\\Desktop\\AI school assignment\\train-labels.idx1-ubyte";
+	char testFilePath[100] = "C:\\Users\\Administrator\\Desktop\\AI school assignment\\t10k-images.idx3-ubyte";
+	char testLabelFilePath[100] = "C:\\Users\\Administrator\\Desktop\\AI school assignment\\t10k-labels.idx1-ubyte";
+	int trainCount = 60000;
+	int testCount = 10000;
+	Mat trainData;
+	Mat trainLabel;
+	Mat testData;
+	Mat testlabel;
+	Mat img = imread("C:\\Users\\Administrator\\Desktop\\AI school assignment\\数字8.jpg", 0), predict_img(28, 28, CV_8UC1);
+	imshow("原图", img);
+	//test_generateDateSet(trainFilePath, labelFilePath, trainData, trainLabel,10000);
+	generateDateSet(trainFilePath, labelFilePath, trainData, trainLabel, trainCount);
+	generateDateSet(testFilePath, testLabelFilePath, testData, testlabel, testCount);
+	Ptr<cv::ml::KNearest> knn = cv::ml::KNearest::create();
+	int K = 3;
+	knn->setDefaultK(K);
+	knn->setIsClassifier(true);
+	knn->setAlgorithmType(cv::ml::KNearest::BRUTE_FORCE);
+	cout << "开始训练......" << endl;
+	knn->train(trainData, cv::ml::ROW_SAMPLE, trainLabel);
+	cout << "训练完成" << endl;
+	cout << "开始测试......" << endl;
+	for (int i = 0; i < img.rows; i++)
+	{
+		for (int j = 0; j < img.cols; j++)
+		{
+			img.ptr(i)[j] = 255 - img.ptr(i)[j];
+		}
+	}
+
+	threshold(img, img, 175, 255, THRESH_TOZERO + THRESH_OTSU);
+	resize(img, predict_img, predict_img.size(),INTER_AREA);
+	Mat temp_single_num, result;
+	temp_single_num = predict_img.reshape(0, 1);
+	temp_single_num.convertTo(temp_single_num, CV_32FC1);
+	knn->findNearest(temp_single_num, K, result);
+	cout << "预测结果：" << result.at<float>(0);
+	imshow("测试", img);
+	/*for (int k = 1; k <= 30; k++)
+	{
+		Mat result;
+		knn->findNearest(testData, k, result);
+		int t = 0, f = 0;
+		for (int i = 0; i < testCount; i++)
+		{
+			int predict = int(result.at<float>(i));
+			int actual = int(testlabel.at<float>(i));
+			if (predict == actual)
+			{
+				t++;
+			}
+			else
+			{
+				f++;
+			}
+		}
+		cout << "测试完成" << endl;
+		float accuracy = (t * 1.0) / (t + f);
+		cout.precision(5);
+		cout << "k=" << k << " accuracy=" << accuracy << endl;
+	}*/
+	waitKey();
+	return 0;
+}

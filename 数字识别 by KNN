@@ -21,22 +21,22 @@ DWORD reverse(DWORD& num)
 }
 
 void generateDateSet(char* filePath1,
-					 char* filePath2,
-					 Mat& data,
-					 Mat& label,
-					 int size)
+	char* filePath2,
+	Mat& data,
+	Mat& label,
+	int size)
 {
-	BYTE array[1][28 * 28],single_number_label/*,array2[size]*/;
+	BYTE array[1][28 * 28], single_number_label/*,array2[size]*/;
 	Ptr<BYTE> array2 = new BYTE[size];//栈空间太小了，变成对象new到堆中，堆的空间够大。
 	DWORD magic_number, count, rows, colums;
 	FILE* fp;
 	fp = fopen(filePath1, "rb");
-	if (fp!=NULL)
+	if (fp != NULL)
 	{
 		fread(&magic_number, 1, 4, fp); reverse(magic_number);
 		fread(&count, 1, 4, fp); reverse(count);
 		fread(&rows, 1, 4, fp); reverse(rows);
-		fread(&colums,1, 4, fp); reverse(colums);
+		fread(&colums, 1, 4, fp); reverse(colums);
 		cout << "数据集信息:" << endl;
 		cout << "magic_number:" << magic_number << endl;
 		cout << "count:" << count << endl;
@@ -46,7 +46,7 @@ void generateDateSet(char* filePath1,
 		for (size_t i = 0; i < size; i++)
 		{
 			fread(&array, 1, 28 * 28, fp);
-			Mat single_num_vector(1, 28 * 28, CV_8UC1,array);
+			Mat single_num_vector(1, 28 * 28, CV_8UC1, array);
 			data.push_back(single_num_vector);
 		}
 		data.convertTo(data, CV_32FC1);
@@ -59,7 +59,7 @@ void generateDateSet(char* filePath1,
 	}
 
 	fp = fopen(filePath2, "rb");
-	if (fp!=NULL)
+	if (fp != NULL)
 	{
 		fread(&magic_number, 1, 4, fp); reverse(magic_number);
 		fread(&count, 1, 4, fp); reverse(count);
@@ -79,10 +79,10 @@ void generateDateSet(char* filePath1,
 	}
 }
 void test_generateDateSet(char* filePath1,
-						  char* filePath2,
-						  Mat& data,
-						  Mat& label,
-						  int size)
+	char* filePath2,
+	Mat& data,
+	Mat& label,
+	int size)
 {
 	generateDateSet(filePath1, filePath2, data, label, size);
 	while (true)
@@ -115,8 +115,9 @@ int main()
 	Mat trainLabel;
 	Mat testData;
 	Mat testlabel;
-	Mat img = imread("C:\\Users\\Administrator\\Desktop\\AI school assignment\\数字8.jpg", 0), predict_img(28, 28, CV_8UC1);
-	imshow("原图", img);
+	Mat img = imread("C:\\Users\\Administrator\\Desktop\\AI school assignment\\手写4.jpg", 0), predict_img(28, 28, CV_8UC1);
+	Mat img1 = imread("C:\\Users\\Administrator\\Desktop\\AI school assignment\\手写4.jpg", 1);
+	imshow("原图", img1);
 	//test_generateDateSet(trainFilePath, labelFilePath, trainData, trainLabel,10000);
 	generateDateSet(trainFilePath, labelFilePath, trainData, trainLabel, trainCount);
 	generateDateSet(testFilePath, testLabelFilePath, testData, testlabel, testCount);
@@ -136,9 +137,15 @@ int main()
 			img.ptr(i)[j] = 255 - img.ptr(i)[j];
 		}
 	}
-
+	
 	threshold(img, img, 175, 255, THRESH_TOZERO + THRESH_OTSU);
-	resize(img, predict_img, predict_img.size(),INTER_AREA);
+	
+	for (int i = 0; i < 10; i++)
+	{
+		dilate(img, img, Mat());
+	}
+	
+	resize(img, predict_img, predict_img.size(), INTER_AREA);
 	Mat temp_single_num, result;
 	temp_single_num = predict_img.reshape(0, 1);
 	temp_single_num.convertTo(temp_single_num, CV_32FC1);
